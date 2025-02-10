@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Front Camera Scanner</title>
+    <title>Back Camera Scanner</title>
     <style>
         body {
             margin: 0;
@@ -17,10 +17,6 @@
             width: 100%;
             max-width: 600px;
         }
-        /* Prevent camera flip */
-        #reader video {
-            transform: scaleX(1) !important;
-        }
         #result {
             margin-top: 20px;
             padding: 10px;
@@ -30,68 +26,36 @@
             max-width: 600px;
             min-height: 50px;
         }
-        .controls {
-            margin: 20px 0;
-        }
-        select {
-            padding: 5px;
-            margin: 0 10px;
-        }
     </style>
 </head>
 <body>
-    <h1>Front Camera Scanner</h1>
-    
-    <div class="controls">
-        <select id="cameraSelect">
-            <option value="">Loading cameras...</option>
-        </select>
-    </div>
-
+    <h1>Back Camera Scanner</h1>
     <div id="reader"></div>
     <div id="result">No code detected</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
     <script>
-        const cameraSelect = document.getElementById('cameraSelect');
         const resultElement = document.getElementById('result');
         let html5QrcodeScanner = null;
 
-        async function loadCameras() {
+        async function startScanner() {
             try {
                 const devices = await Html5Qrcode.getCameras();
-                
-                // Find front camera
-                const frontCamera = devices.find(device => 
-                    device.label.toLowerCase().includes('front') ||
-                    device.label.toLowerCase().includes('user') ||
-                    device.label.toLowerCase().includes('facing')
-                );
-                
-                cameraSelect.innerHTML = devices.map(device => 
-                    `<option value="${device.id}" ${device.id === (frontCamera?.id) ? 'selected' : ''}>
-                        ${device.label}
-                    </option>`
-                ).join('');
-                
-                const startCamera = frontCamera || devices[0];
-                if (startCamera) {
-                    startScanner(startCamera.id);
+                // Find back camera
+                const backCamera = devices.find(device => 
+                    device.label.toLowerCase().includes('back') ||
+                    device.label.toLowerCase().includes('rear') ||
+                    device.label.toLowerCase().includes('environment')
+                ) || devices[0]; // Fallback to first camera if back camera not found
+
+                if (backCamera) {
+                    initScanner(backCamera.id);
+                } else {
+                    resultElement.textContent = 'No back camera found';
                 }
             } catch (error) {
-                console.error('Error loading cameras:', error);
-                resultElement.textContent = 'Error loading cameras: ' + error.message;
-            }
-        }
-
-        function startScanner(cameraId) {
-            if (html5QrcodeScanner) {
-                html5QrcodeScanner.stop().then(() => {
-                    html5QrcodeScanner.clear();
-                    initScanner(cameraId);
-                });
-            } else {
-                initScanner(cameraId);
+                console.error('Error accessing camera:', error);
+                resultElement.textContent = 'Error accessing camera: ' + error.message;
             }
         }
 
@@ -100,10 +64,9 @@
                 fps: 10,
                 qrbox: { width: 250, height: 250 },
                 aspectRatio: 1.0,
-                facingMode: "user",
-                // Disable default flipping
+                facingMode: "environment",
                 videoConstraints: {
-                    facingMode: "user",
+                    facingMode: "environment",
                     width: { min: 640, ideal: 1280, max: 1920 },
                     height: { min: 480, ideal: 720, max: 1080 }
                 }
@@ -124,29 +87,17 @@
             ).catch((err) => {
                 resultElement.textContent = 'Error starting scanner: ' + err;
             });
-
-            // Additional fix for camera flip
-            setTimeout(() => {
-                const video = document.querySelector('#reader video');
-                if (video) {
-                    video.style.transform = 'scaleX(1)';
-                }
-            }, 1000);
         }
 
-        cameraSelect.addEventListener('change', (e) => {
-            if (e.target.value) {
-                startScanner(e.target.value);
-            }
-        });
+        // Start scanner when page loads
+        startScanner();
 
+        // Clean up when page is closed
         window.addEventListener('beforeunload', () => {
             if (html5QrcodeScanner) {
                 html5QrcodeScanner.stop().then(() => html5QrcodeScanner.clear());
             }
         });
-
-        loadCameras();
     </script>
 </body>
 </html>
