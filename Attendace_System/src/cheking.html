@@ -1,0 +1,148 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://kit.fontawesome.com/7ce4c17c5c.js" crossorigin="anonymous"></script>
+    <link rel="shortcut icon" href="/logo.png" type="image/x-icon">
+    <title>Cheking Attendance</title>
+</head>
+<body>
+    <div class="container2">
+        <img src="/logo.png" alt="" class="chek-logo">
+        <form action="">
+            <h2>Attendance Tracking</h2>
+            <div class="inputs">
+                <div class="mini-inputs">
+                    <input type="text" id="cheking" placeholder="Entrer votre ID">
+                    <i class="fa-solid fa-user"></i>
+                </div>
+                <div class="buttons">
+                    <button id="check">Regester</button>
+                    <button id="Chek-ab" onclick="checkAttendance()">chek</button>
+                </div>
+            </div> 
+            <div class="Date-time">
+                <h2 id="current-time">00:00:00</h2>
+                <h2 id="current-day">Day</h2> 
+                <h2 id="current-date">dd.mm.yyyy</h2>
+            </div>            
+        </form>
+    </div>
+    <script>
+        function updateDateTime() {
+            const now = new Date();
+
+            // Format Time: HH:MM:SS
+            const hours = now.getHours().toString().padStart(2, "0");
+            const minutes = now.getMinutes().toString().padStart(2, "0");
+            const seconds = now.getSeconds().toString().padStart(2, "0");
+            const formattedTime = `${hours}:${minutes}:${seconds}`; 
+            // Format Date: DD.MM.YYYY
+            const day = now.getDate().toString().padStart(2, "0");
+            const months = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+            const month = months[now.getMonth()]; // Get month name in French
+            const year = now.getFullYear();
+            const formattedDate = `${day} ${month} ${year}`;    
+            // Get Day Name in French
+            const daysOfWeek = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+            const dayName = daysOfWeek[now.getDay()];   
+            // Update HTML
+            document.getElementById("current-time").textContent = formattedTime;
+            document.getElementById("current-date").textContent = formattedDate;
+            document.getElementById("current-day").textContent = dayName;
+        }
+
+        // Update every second
+        setInterval(updateDateTime, 1000);
+
+        // Run immediately when the page loads
+        updateDateTime();
+        document.addEventListener("DOMContentLoaded", () => {
+            const checkBtn = document.getElementById("check"); // Button to check attendance
+            const employeeIDInput = document.getElementById("cheking"); // Input for employee ID
+            
+            checkBtn.addEventListener("click", async (event) => {
+                event.preventDefault();  // Prevent default button behavior
+
+                const employeeID = employeeIDInput.value.trim();
+                // Get the current date
+                const currentDate = new Date();
+                
+                // Format the date as YYYY-MM-DD
+                const formattedDate = currentDate.toISOString().split('T')[0];  // This will give the date in YYYY-MM-DD format
+                
+                const status = "Present";  // Default status
+                const time = currentDate.toLocaleTimeString("fr-FR"); // Get current time in French format
+
+                // Check if employee ID is entered
+                if (!employeeID) {
+                    alert("Please enter an employee ID!");
+                    return;
+                }
+
+                try {
+                // Step 1: Fetch the employee name based on the ID
+                    const employeeResponse = await fetch(`http://192.168.100.76:3000/get-employee-name/${employeeID}`);
+                    const employeeData = await employeeResponse.json();
+
+                if (!employeeData.name) {
+                    alert("Employee not found!");
+                    return;
+                }
+
+                const employeeName = employeeData.name;
+
+                // Step 2: Register the attendance with the employee name
+                const response = await fetch("http://192.168.100.76:3000/register-attendance", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                    ID: employeeID,
+                    Name: employeeName,
+                    Day: formattedDate,
+                    Status: status,
+                    Time: time,
+                }),
+            });
+            const data = await response.json();
+
+            if (response.ok) {
+                alert("Attendance registered successfully!");
+                console.log(data.message);  // Log success message
+            } else {
+                alert("Failed to register attendance: " + (data.error || "Unknown error"));
+            }
+            } catch (error) {
+                console.error("Error during attendance registration:", error);
+                alert("An error occurred while registering attendance.");
+            }
+            employeeIDInput.value = '';
+        });
+    });
+
+
+    function checkAttendance() {
+        fetch("http://192.168.100.76:3000/check-attendance", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                console.log("Success:", data.message);
+            } else {
+                console.error("Error:", data.error);
+            }
+        })
+        .catch(error => {
+            console.error("Fetch error:", error);
+        });
+    }
+
+
+</script>
+</body>
+</html>

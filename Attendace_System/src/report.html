@@ -1,0 +1,224 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://kit.fontawesome.com/7ce4c17c5c.js" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="shortcut icon" href="/logo.png" type="image/x-icon">
+    <title>Attendance report</title>
+</head>
+<body>
+    <header>
+        <img src="/logo.png" alt="" class="logo">
+        <div class="menu">
+            <ul>
+                <li id="Dash">
+                    <img src="/9055226_bxs_dashboard_icon.png" alt="">
+                    Dashboard
+                </li>
+                <li id="Att" >
+                    <img src="/1471085_add user_business man_employee_general_human_icon.png" alt="">
+                    Attendance
+                </li>
+                <li id="Emp">
+                    <img src="/11395306_employee_candidate_business_team_people_icon.png" alt="">
+                    Employees
+                </li>
+                <li id="Rep" class="active">
+                    <img src="/2931174_clipboard_copy_paste_analysis_report_icon.png" alt="">
+                    Report
+                </li>
+            </ul>
+        </div>
+    </header>
+    <div class="container">
+        <div class="head">
+            <h2>BIO ZAGORA ATTENDANCE TRACKER</h2>
+        </div>
+    </div>
+
+    <div class="rapport-container">
+        <div class="Rapport">
+            <h2>Rapport D'attendance du Mois</h2>
+            <div class="div1">
+                <table>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="top top4">Localtion</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="top">Rabat</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </table>
+                <table>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="top top5">Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="top" id="currentMonth">Current monthe</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </table>
+            </div>
+            <div class="div2">
+                <table id="reportTable">
+                    <tbody>
+                        <tr>
+                            <td class="top top1">Total des Salaires</td>
+                            <td id="totalSalaire" style="width: 7rem;" class="top">0 Dh</td>
+                        </tr>
+                        <tr>
+                            <td class="top top2">Total de Presence</td>
+                            <td id="totalPresence" style="width: 7rem;" class="top">0</td>
+                        </tr>
+                        <tr>
+                            <td class="top top3">Total d'Absence</td>
+                            <td id="totalAbsence" style="width: 7rem;" class="top">0</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <table class="report-table">
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Jours Presence</th>
+                        <th>Jours Absence</th>
+                        <th>Jours Off</th>
+                        <th>Total Jours</th>
+                        <th>Salaire de réference</th>
+                        <th>Salaire Payent</th>
+                    </tr>
+                </thead>
+                <tbody id="report-table-body">
+
+                </tbody>
+            </table>
+        </div>
+        
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script>
+    let Dash = document.getElementById('Dash');
+    let Att = document.getElementById('Att');
+    let Emp = document.getElementById('Emp');
+    let Rep = document.getElementById('Rep');
+
+    Dash.onclick = function(){
+        window.location.href = "/Dashboard.html";
+        Dash.setAttribute('class','active');
+    }
+    Att.onclick = function(){
+        window.location.href = "/Attendance_cheking.html";
+        Att.setAttribute('class','active');
+    }
+    Emp.onclick = function(){
+        window.location.href = "/employee.html";
+        Emp.setAttribute('class','active');
+    }
+    Rep.onclick = function(){
+        window.location.href = "/report.html";
+        Rep.setAttribute('class','active')
+    }
+
+    // Get the current month and year
+     const date = new Date();
+    const monthName = date.toLocaleString('default', { month: 'long' }); // Get month name
+    const year = date.getFullYear(); // Get year
+
+    // Set the current month in the table
+    document.getElementById("currentMonth").textContent = `${monthName} ${year}`;
+
+    // Function to fetch report data
+    function fetchReportData() {
+            $.ajax({
+                url: 'http://192.168.100.76:3000//report-data', // The endpoint to fetch data from the server
+                method: 'GET',
+                success: function(response) {
+                    var rows = '';
+                    // Loop through the response data and create rows
+                    response.forEach(function(row) {
+                        rows += `
+                            <tr>
+                                <td>${row.Employee}</td>
+                                <td>${row.Jours_Presence}</td>
+                                <td>${row.Jours_Absence}</td>
+                                <td>${row.Jours_Off}</td>
+                                <td>${row.Total_de_jours}</td>
+                                <td>${row.Salaire_de_reference}</td>
+                                <td>${row.Salaire_Payent}</td>
+                            </tr>
+                        `;
+                    });
+                    // Insert the rows into the table body
+                    $('#report-table-body').html(rows);
+                },
+                error: function(error) {
+                    console.log('Error fetching data:', error);
+                }
+            });
+        }
+
+        // Call the function on page load to fetch the data
+            fetchReportData();
+        
+        document.addEventListener("DOMContentLoaded", function () {
+            fetch('/getTotals')
+            .then(response => response.json())
+            .then(data => {
+                console.log("Fetched Data:", data);
+
+                // Update table with fetched data
+                document.getElementById("totalSalaire").textContent = `${data.TotalSalaire} Dh`;
+                document.getElementById("totalPresence").textContent = data.TotalPresence;
+                document.getElementById("totalAbsence").textContent = data.TotalAbsence;
+            })
+            .catch(error => console.error('Error fetching totals:', error));
+    });
+
+</script>
+</body>
+</html>
