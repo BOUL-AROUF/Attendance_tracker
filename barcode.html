@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Simple Scanner</title>
+    <title>Front Camera Scanner</title>
     <style>
         body {
             margin: 0;
@@ -36,7 +36,7 @@
     </style>
 </head>
 <body>
-    <h1>Simple Scanner</h1>
+    <h1>Front Camera Scanner</h1>
     
     <div class="controls">
         <select id="cameraSelect">
@@ -57,12 +57,25 @@
         async function loadCameras() {
             try {
                 const devices = await Html5Qrcode.getCameras();
+                
+                // Find front camera
+                const frontCamera = devices.find(device => 
+                    device.label.toLowerCase().includes('front') ||
+                    device.label.toLowerCase().includes('user') ||
+                    device.label.toLowerCase().includes('facing')
+                );
+                
+                // Populate dropdown
                 cameraSelect.innerHTML = devices.map(device => 
-                    `<option value="${device.id}">${device.label}</option>`
+                    `<option value="${device.id}" ${device.id === (frontCamera?.id) ? 'selected' : ''}>
+                        ${device.label}
+                    </option>`
                 ).join('');
                 
-                if (devices.length > 0) {
-                    startScanner(devices[0].id);
+                // Start with front camera if found, otherwise use first available camera
+                const startCamera = frontCamera || devices[0];
+                if (startCamera) {
+                    startScanner(startCamera.id);
                 }
             } catch (error) {
                 console.error('Error loading cameras:', error);
@@ -72,16 +85,24 @@
 
         function startScanner(cameraId) {
             if (html5QrcodeScanner) {
-                html5QrcodeScanner.clear();
+                html5QrcodeScanner.stop().then(() => {
+                    html5QrcodeScanner.clear();
+                    initScanner(cameraId);
+                });
+            } else {
+                initScanner(cameraId);
             }
+        }
 
+        function initScanner(cameraId) {
             html5QrcodeScanner = new Html5Qrcode("reader");
             html5QrcodeScanner.start(
                 cameraId, 
                 {
                     fps: 10,
                     qrbox: { width: 250, height: 250 },
-                    aspectRatio: 1.0
+                    aspectRatio: 1.0,
+                    facingMode: "user"  // Explicitly request front camera
                 },
                 (decodedText, decodedResult) => {
                     resultElement.textContent = 'Detected: ' + decodedText;
@@ -106,6 +127,13 @@
 
         // Start loading cameras
         loadCameras();
+
+        // Clean up when page is closed
+        window.addEventListener('beforeunload', () => {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.stop().then(() => html5QrcodeScanner.clear());
+            }
+        });
     </script>
 </body>
 </html>
