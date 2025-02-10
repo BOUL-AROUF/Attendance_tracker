@@ -17,6 +17,10 @@
             width: 100%;
             max-width: 600px;
         }
+        /* Prevent camera flip */
+        #reader video {
+            transform: scaleX(1) !important;
+        }
         #result {
             margin-top: 20px;
             padding: 10px;
@@ -53,7 +57,6 @@
         const resultElement = document.getElementById('result');
         let html5QrcodeScanner = null;
 
-        // Load available cameras
         async function loadCameras() {
             try {
                 const devices = await Html5Qrcode.getCameras();
@@ -65,14 +68,12 @@
                     device.label.toLowerCase().includes('facing')
                 );
                 
-                // Populate dropdown
                 cameraSelect.innerHTML = devices.map(device => 
                     `<option value="${device.id}" ${device.id === (frontCamera?.id) ? 'selected' : ''}>
                         ${device.label}
                     </option>`
                 ).join('');
                 
-                // Start with front camera if found, otherwise use first available camera
                 const startCamera = frontCamera || devices[0];
                 if (startCamera) {
                     startScanner(startCamera.id);
@@ -95,18 +96,25 @@
         }
 
         function initScanner(cameraId) {
+            const config = {
+                fps: 10,
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1.0,
+                facingMode: "user",
+                // Disable default flipping
+                videoConstraints: {
+                    facingMode: "user",
+                    width: { min: 640, ideal: 1280, max: 1920 },
+                    height: { min: 480, ideal: 720, max: 1080 }
+                }
+            };
+
             html5QrcodeScanner = new Html5Qrcode("reader");
             html5QrcodeScanner.start(
                 cameraId, 
-                {
-                    fps: 10,
-                    qrbox: { width: 250, height: 250 },
-                    aspectRatio: 1.0,
-                    facingMode: "user"  // Explicitly request front camera
-                },
+                config,
                 (decodedText, decodedResult) => {
                     resultElement.textContent = 'Detected: ' + decodedText;
-                    // Play success sound
                     const beep = new Audio("data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1NOTQrHxsZGBgYGRobHB0eHyAiIyUmKCkrLC0uLzAwMTIyMzM0NTU2Nzg4OTk6Ozs8PT0+Pj8/QEBAQUFBQ");
                     beep.play();
                 },
@@ -116,24 +124,29 @@
             ).catch((err) => {
                 resultElement.textContent = 'Error starting scanner: ' + err;
             });
+
+            // Additional fix for camera flip
+            setTimeout(() => {
+                const video = document.querySelector('#reader video');
+                if (video) {
+                    video.style.transform = 'scaleX(1)';
+                }
+            }, 1000);
         }
 
-        // Handle camera selection
         cameraSelect.addEventListener('change', (e) => {
             if (e.target.value) {
                 startScanner(e.target.value);
             }
         });
 
-        // Start loading cameras
-        loadCameras();
-
-        // Clean up when page is closed
         window.addEventListener('beforeunload', () => {
             if (html5QrcodeScanner) {
                 html5QrcodeScanner.stop().then(() => html5QrcodeScanner.clear());
             }
         });
+
+        loadCameras();
     </script>
 </body>
 </html>
