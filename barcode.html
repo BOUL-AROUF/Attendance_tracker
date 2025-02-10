@@ -3,290 +3,109 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>QR Code & Barcode Scanner</title>
+    <title>Simple Scanner</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
             margin: 0;
             padding: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
+            font-family: Arial, sans-serif;
         }
-        #interactive.viewport {
-            position: relative;
+        #reader {
             width: 100%;
-            max-width: 640px;
-            height: 480px;
+            max-width: 600px;
         }
-        #interactive.viewport > canvas, #interactive.viewport > video {
-            max-width: 100%;
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
             width: 100%;
+            max-width: 600px;
+            min-height: 50px;
         }
         .controls {
             margin: 20px 0;
         }
-        #result {
-            margin: 20px 0;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            min-width: 300px;
-        }
-        .error {
-            color: red;
-            margin: 10px 0;
-            padding: 10px;
-            border: 1px solid red;
-            border-radius: 4px;
-        }
-        .scanning-feedback {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255, 255, 255, 0.8);
-            padding: 10px;
-            border-radius: 4px;
-            display: none;
-        }
-        #debug-canvas {
-            display: none;
+        select {
+            padding: 5px;
+            margin: 0 10px;
         }
     </style>
 </head>
 <body>
-    <h1>QR Code & Barcode Scanner</h1>
-    
-    <div id="compatibility-check"></div>
+    <h1>Simple Scanner</h1>
     
     <div class="controls">
-        <button id="startButton">Start Scanner</button>
-        <button id="stopButton" disabled>Stop Scanner</button>
-        <select id="cameraSelect" style="margin-left: 10px;">
+        <select id="cameraSelect">
             <option value="">Loading cameras...</option>
         </select>
     </div>
 
-    <div id="interactive" class="viewport">
-        <div class="scanning-feedback">Scanning...</div>
-    </div>
+    <div id="reader"></div>
     <div id="result">No code detected</div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
     <script>
-        const startButton = document.getElementById('startButton');
-        const stopButton = document.getElementById('stopButton');
-        const result = document.getElementById('result');
-        const compatCheck = document.getElementById('compatibility-check');
         const cameraSelect = document.getElementById('cameraSelect');
-
-        let isScanning = false;
-        let selectedDeviceId = null;
+        const resultElement = document.getElementById('result');
+        let html5QrcodeScanner = null;
 
         // Load available cameras
         async function loadCameras() {
             try {
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const videoDevices = devices.filter(device => device.kind === 'videoinput');
-                
-                cameraSelect.innerHTML = videoDevices.map(device => 
-                    `<option value="${device.deviceId}">${device.label || `Camera ${videoDevices.indexOf(device) + 1}`}</option>`
+                const devices = await Html5Qrcode.getCameras();
+                cameraSelect.innerHTML = devices.map(device => 
+                    `<option value="${device.id}">${device.label}</option>`
                 ).join('');
                 
-                if (videoDevices.length === 0) {
-                    cameraSelect.innerHTML = '<option value="">No cameras found</option>';
+                if (devices.length > 0) {
+                    startScanner(devices[0].id);
                 }
             } catch (error) {
                 console.error('Error loading cameras:', error);
-                cameraSelect.innerHTML = '<option value="">Error loading cameras</option>';
+                resultElement.textContent = 'Error loading cameras: ' + error.message;
             }
         }
 
-        // Check for required browser features
-        async function checkCompatibility() {
-            let errorMessage = '';
-            
-            if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
-                errorMessage += 'This scanner requires HTTPS or localhost to access the camera. ';
+        function startScanner(cameraId) {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.clear();
             }
 
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                errorMessage += 'Your browser doesn\'t support camera access. Please use a modern browser. ';
-            }
-
-            if (errorMessage) {
-                const errorDiv = document.createElement('div');
-                errorDiv.className = 'error';
-                errorDiv.textContent = errorMessage;
-                compatCheck.appendChild(errorDiv);
-                startButton.disabled = true;
-            } else {
-                await loadCameras();
-            }
+            html5QrcodeScanner = new Html5Qrcode("reader");
+            html5QrcodeScanner.start(
+                cameraId, 
+                {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 },
+                    aspectRatio: 1.0
+                },
+                (decodedText, decodedResult) => {
+                    resultElement.textContent = 'Detected: ' + decodedText;
+                    // Play success sound
+                    const beep = new Audio("data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1NOTQrHxsZGBgYGRobHB0eHyAiIyUmKCkrLC0uLzAwMTIyMzM0NTU2Nzg4OTk6Ozs8PT0+Pj8/QEBAQUFBQ");
+                    beep.play();
+                },
+                (errorMessage) => {
+                    // Ignore errors - they're usually just frames where no code was detected
+                }
+            ).catch((err) => {
+                resultElement.textContent = 'Error starting scanner: ' + err;
+            });
         }
 
-        checkCompatibility();
-
-        startButton.addEventListener('click', startScanner);
-        stopButton.addEventListener('click', stopScanner);
+        // Handle camera selection
         cameraSelect.addEventListener('change', (e) => {
-            selectedDeviceId = e.target.value;
-            if (isScanning) {
-                stopScanner();
-                startScanner();
+            if (e.target.value) {
+                startScanner(e.target.value);
             }
         });
 
-        async function startScanner() {
-            try {
-                const constraints = {
-                    video: {
-                        facingMode: "environment",
-                        deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined,
-                        width: { min: 640, ideal: 1280, max: 1920 },
-                        height: { min: 480, ideal: 720, max: 1080 },
-                        focusMode: "continuous"
-                    }
-                };
-
-                await navigator.mediaDevices.getUserMedia(constraints);
-                
-                Quagga.init({
-                    inputStream: {
-                        name: "Live",
-                        type: "LiveStream",
-                        target: document.querySelector("#interactive"),
-                        constraints: constraints.video,
-                        area: { 
-                            top: "0%",    
-                            right: "0%",  
-                            left: "0%",   
-                            bottom: "0%"  
-                        },
-                    },
-                    decoder: {
-                        readers: [
-                            "ean_reader",
-                            "ean_8_reader",
-                            "code_128_reader",
-                            "code_39_reader",
-                            "upc_reader",
-                            "upc_e_reader",
-                            "qr_reader"
-                        ],
-                        debug: {
-                            showCanvas: true,
-                            showPatches: true,
-                            showFoundPatches: true,
-                            showSkeleton: true,
-                            showLabels: true,
-                            showPatchLabels: true,
-                            showRemainingPatchLabels: true,
-                            boxFromPatches: {
-                                showTransformed: true,
-                                showTransformedBox: true,
-                                showBB: true
-                            }
-                        }
-                    },
-                    locate: true,
-                    frequency: 10,
-                    debug: true,
-                    locator: {
-                        halfSample: true,
-                        patchSize: "medium",
-                        debug: {
-                            showCanvas: true,
-                            showPatches: true,
-                            showFoundPatches: true,
-                            showSkeleton: true,
-                            showLabels: true,
-                            showPatchLabels: true,
-                            showRemainingPatchLabels: true,
-                            boxFromPatches: {
-                                showTransformed: true,
-                                showTransformedBox: true,
-                                showBB: true
-                            }
-                        }
-                    }
-                }, function(err) {
-                    if (err) {
-                        console.error(err);
-                        result.innerHTML = `<div class="error">Error starting scanner: ${err.message}</div>`;
-                        return;
-                    }
-                    
-                    isScanning = true;
-                    startButton.disabled = true;
-                    stopButton.disabled = false;
-                    document.querySelector('.scanning-feedback').style.display = 'block';
-                    Quagga.start();
-                });
-
-                let lastResult = null;
-                let sameResultCount = 0;
-
-                Quagga.onProcessed(function(result) {
-                    const drawingCtx = Quagga.canvas.ctx.overlay;
-                    const drawingCanvas = Quagga.canvas.dom.overlay;
-
-                    if (result) {
-                        if (result.boxes) {
-                            drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
-                            result.boxes.filter(box => box !== result.box).forEach(box => {
-                                Quagga.ImageDebug.drawPath(box, { x: 0, y: 1 }, drawingCtx, { color: "yellow", lineWidth: 2 });
-                            });
-                        }
-
-                        if (result.box) {
-                            Quagga.ImageDebug.drawPath(result.box, { x: 0, y: 1 }, drawingCtx, { color: "green", lineWidth: 2 });
-                        }
-                    }
-                });
-
-                Quagga.onDetected(function(data) {
-                    const code = data.codeResult.code;
-                    
-                    // Require the same code to be detected multiple times
-                    if (code === lastResult) {
-                        sameResultCount++;
-                        if (sameResultCount >= 3) {  // Require 3 same readings
-                            result.textContent = "Detected code: " + code;
-                            // Optional: add beep sound
-                            const beep = new Audio("data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1NOTQrHxsZGBgYGRobHB0eHyAiIyUmKCkrLC0uLzAwMTIyMzM0NTU2Nzg4OTk6Ozs8PT0+Pj8/QEBAQUFBQ");
-                            beep.play();
-                            sameResultCount = 0;
-                        }
-                    } else {
-                        lastResult = code;
-                        sameResultCount = 1;
-                    }
-                });
-
-            } catch (error) {
-                result.innerHTML = `<div class="error">Camera access error: ${error.message}</div>`;
-                console.error('Camera access error:', error);
-            }
-        }
-
-        function stopScanner() {
-            if (isScanning) {
-                Quagga.stop();
-                isScanning = false;
-                startButton.disabled = false;
-                stopButton.disabled = true;
-                document.querySelector('.scanning-feedback').style.display = 'none';
-                result.textContent = "Scanner stopped";
-            }
-        }
-
-        document.addEventListener('visibilitychange', function() {
-            if (document.hidden && isScanning) {
-                stopScanner();
-            }
-        });
+        // Start loading cameras
+        loadCameras();
     </script>
 </body>
 </html>
