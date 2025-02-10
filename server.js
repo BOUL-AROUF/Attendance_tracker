@@ -30,7 +30,7 @@ app.use(session({
     secret: '3b0a88f3b8ac5fa469bf2b5d705d9830cfd72958e93d2d7c0a2f6ac4d5fbd556',
     resave: false,
     saveUninitialized: true,
-    cookie: { secure: false }
+    cookie: { secure: true }
 }));
 app.use(express.static(path.join(__dirname, 'src')));
 
